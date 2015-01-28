@@ -108,7 +108,7 @@ func (s *Store) NewToken(id string) (*Token, error) {
 // flags inside the returned cookie.
 func (t *Token) Cookie() *http.Cookie {
 	created := time.Now().Unix()
-	token := strings.Join([]string{t.id, strconv.FormatInt(created, 10), strconv.Itoa(t.auth.Duration)}, ":")
+	token := t.id + ":" + strconv.FormatInt(created, 10)
 
 	mac := signMessage(token, t.auth.key)
 	token += ":" + base64.URLEncoding.EncodeToString(mac)
@@ -124,17 +124,17 @@ func (t *Token) Cookie() *http.Cookie {
 // removed by the browser once they expire.
 func (s *Store) Verify(c *http.Cookie) (*Token, error) {
 	fields := strings.Split(c.Value, ":")
-	if len(fields) != 4 {
+	if len(fields) != 3 {
 		return nil, ErrInvalidToken
 	}
 
-	mac1, err := base64.URLEncoding.DecodeString(fields[3])
+	mac1, err := base64.URLEncoding.DecodeString(fields[2])
 	if err != nil {
 		// Treat this error just like any other token decode error.
 		return nil, ErrInvalidToken
 	}
 
-	mac2 := signMessage(strings.Join(fields[:3], ":"), s.key)
+	mac2 := signMessage(strings.Join(fields[:2], ":"), s.key)
 
 	if !hmac.Equal(mac1, mac2) {
 		// It looks like either the token has been tampered with, or the key has
@@ -145,33 +145,22 @@ func (s *Store) Verify(c *http.Cookie) (*Token, error) {
 	// This is a valid token.
 	// Now check whether it hasn't expired yet.
 
-	id := fields[0]
 	created, err := strconv.ParseInt(fields[1], 10, 64)
 	if err != nil {
 		// This may be an error on our side: the token has been verified but
 		// contains invalid data...
 		return nil, ErrInvalidToken
 	}
-	duration, err := strconv.Atoi(fields[2])
-	if err != nil {
-		// Same story here.
-		return nil, ErrInvalidToken
-	}
 
 	now := time.Now().Unix()
 
-	// Choose the smallest of the two maximum ages.
-	if duration > s.Duration {
-		duration = s.Duration
-	}
-
-	if created+int64(duration) < now {
+	if created+int64(s.Duration) < now {
 		// This will not happen often in practice, as the cookie will have been
 		// deleted by the browser already.
 		return nil, ErrExpiredToken
 	}
 
-	return &Token{s, id}, nil
+	return &Token{s, fields[0]}, nil
 }
 
 // Id returns the user ID for this token.
