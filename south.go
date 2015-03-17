@@ -4,10 +4,10 @@
 
 // Package south provides stateless HTTP authentication using cookies.
 //
-// It works by saving the user ID and expirity information to a cookie, signed
-// with HMAC-256. This cookie can later be verified.
+// It works by saving the user ID and creation time to a cookie, signed with
+// HMAC-256. This cookie can later be verified.
 // Note: this package only signs the cookie, it doesn't encrypt it. Therefore,
-// the user ID, creation time (in seconds) and the expirity will be visible.
+// the user ID and the creation time (in seconds) will be visible.
 //
 // The user ID must be able to fit in a cookie value and not contain a colon.
 // This means simple identifiers (including numbers) are allowed, but also
