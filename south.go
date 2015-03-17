@@ -44,8 +44,6 @@ const DefaultCookieName = "sessionToken"
 
 // Store saves authentication tokens inside cookies.
 type Store struct {
-	key []byte // HMAC key
-
 	// The time after which tokens will expire, defaulting to DefaultDuration.
 	Duration int
 
@@ -53,10 +51,11 @@ type Store struct {
 	// DefaultCookieName.
 	CookieName string
 
-	// CookiePath is the path for the cookie returned by Token.Cookie(). May be
-	// left empty, but can be given some value to restrict where the cookie is
-	// visible on this domain.
-	CookiePath string
+	// cookiePath is the path for the cookie returned by Token.Cookie().
+	cookiePath string
+
+	// HMAC key
+	key []byte
 }
 
 // Token is a single authentication token for one user ID.
@@ -79,12 +78,18 @@ func GenerateKey() ([]byte, error) {
 // New returns a new session store.
 // A new key can be generated using GenerateKey().
 // Returns an error if the key does not have the right length.
-func New(key []byte) (*Store, error) {
+func New(key []byte, path string) (*Store, error) {
+	// The cookie path must not be left empty
 	if len(key) != KeySize {
 		return nil, ErrKeySize
 	}
 
-	return &Store{key, DefaultDuration, DefaultCookieName, ""}, nil
+	return &Store{
+		Duration: DefaultDuration,
+		CookieName: DefaultCookieName,
+		cookiePath: path,
+		key: key,
+	}, nil
 }
 
 // NewToken returns a new Token for this user ID. An error may be returned if
@@ -113,7 +118,7 @@ func (t *Token) Cookie() *http.Cookie {
 	mac := signMessage(token, t.auth.key)
 	token += ":" + base64.URLEncoding.EncodeToString(mac)
 
-	return &http.Cookie{Name: t.auth.CookieName, Value: token, Path: t.auth.CookiePath, MaxAge: t.auth.Duration, Secure: true, HttpOnly: true}
+	return &http.Cookie{Name: t.auth.CookieName, Value: token, Path: t.auth.cookiePath, MaxAge: t.auth.Duration, Secure: true, HttpOnly: true}
 }
 
 // Verify verifies the token encapsulated inside the HTTP cookie.
